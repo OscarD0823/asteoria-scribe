@@ -9,7 +9,8 @@ import {
   type PageLayout,
 } from "./flow";
 import { fontFamilies } from "@prisma/core/fonts";
-import { encodeFont } from "@prisma/core/local-fonts";
+import { encodeFont,importLocalFont,validateLocalFonts,type LocalFont } from "@prisma/core/local-fonts";
+import {normalizeFontName,deviceFonts,initializeDeviceFonts} from '@prisma/core/device-fonts';
 import {attachOfficeOriginal} from '@prisma/core/office-engines';
 import {
   normalizeAcademicDocument,
@@ -84,15 +85,46 @@ export function importText(text: string): FlowDocument {
   };
 }
 export async function importOfficeDocx(bytes:Uint8Array){
- const result=importDocx(bytes);
+ await initializeDeviceFonts();
+ const embedded=await embeddedDocxFonts(bytes);
+ const available=[...embedded.fonts,...deviceFonts().filter(face=>!embedded.fonts.some(f=>f.value===face.value&&f.style===face.style))];
+ const result=importDocx(bytes,available);
+ await validateLocalFonts(result.flow.fonts??[]);
+ result.warnings.push(...embedded.warnings);
  await attachOfficeOriginal(result.flow,bytes);
  result.warnings=result.warnings.filter(w=>!/historial de cambios|notas al pie o finales/.test(w));
  result.warnings.push('El original de Word se conserva. Los cambios de texto y notas mantienen sus partes; cambios de diseño o estructura requieren reconstrucción.');
  if(result.flow.importReport)result.flow.importReport.warnings=result.warnings;
  return result;
 }
+async function embeddedDocxFonts(bytes:Uint8Array):Promise<{fonts:LocalFont[];warnings:string[]}>{
+ if(bytes.length>100*1024*1024)throw Error('Elige un DOCX de hasta 100 MB.');
+ let expanded=0;
+ const parts=unzipSync(bytes,{filter(file){expanded+=file.originalSize;if(expanded>160*1024*1024)throw Error('El DOCX descomprimido supera los 160 MB.');return /^word\/(fontTable\.xml|_rels\/fontTable\.xml\.rels|fonts\/.+)$/.test(file.name);}});
+ if(!parts['word/fontTable.xml']||!parts['word/_rels/fontTable.xml.rels'])return {fonts:[],warnings:[]};
+ const table=parseXml(strFromU8(parts['word/fontTable.xml'])),rels=parseXml(strFromU8(parts['word/_rels/fontTable.xml.rels']));
+ const fonts:LocalFont[]=[],warnings:string[]=[];let total=0;
+ for(const family of all(table,'font'))for(const embedded of children(family).filter(el=>/^embed(Regular|Bold|Italic|BoldItalic)$/.test(el.localName))){
+  const label=val(family,'name');
+  try{
+   const id=embedded.getAttributeNS(R,'id')??embedded.getAttribute('r:id'),relationship=all(rels,'Relationship').find(rel=>rel.getAttribute('Id')===id);
+   if(!relationship||relationship.getAttribute('TargetMode')==='External')throw Error('relación de fuente local no válida');
+   const target=partPath('word/fontTable.xml',relationship.getAttribute('Target')??''),source=parts[target];
+   if(!target.startsWith('word/fonts/')||!source||source.length>8*1024*1024)throw Error('archivo de fuente ausente o mayor de 8 MB');
+   const data=source.slice(),guid=val(embedded,'fontKey').replace(/[{}-]/g,'');
+   if(guid){if(!/^[a-f0-9]{32}$/i.test(guid))throw Error('clave de fuente no válida');const key=guid.match(/../g)!.map(h=>parseInt(h,16)).reverse();for(let i=0;i<Math.min(32,data.length);i++)data[i]^=key[i%16];}
+   else if(/\.odttf$/i.test(target))throw Error('falta la clave de la fuente incrustada');
+   const font=await importLocalFont(data);
+   if(normalizeFontName(font.label)!==normalizeFontName(label))throw Error('el nombre no coincide con el archivo incrustado');
+   if(fonts.some(face=>face.value===font.value&&face.style===font.style))continue;
+   if(fonts.length>=64||total+data.length>24*1024*1024)throw Error('las fuentes del documento superan el límite local');
+   total+=data.length;fonts.push(font);
+  }catch(error){warnings.push('Fuente '+label+': '+(error instanceof Error?error.message:String(error))+'. Se conserva en el original.');}
+ }
+ await validateLocalFonts(fonts);return {fonts,warnings};
+}
 /** Parse OOXML locally. No remote relationships, embedded programs or macros are executed. */
-export function importDocx(bytes: Uint8Array): {
+export function importDocx(bytes: Uint8Array, availableFonts:LocalFont[]=[]): {
   flow: FlowDocument;
   warnings: string[];
 } {
@@ -105,7 +137,7 @@ export function importDocx(bytes: Uint8Array): {
       expanded += file.originalSize;
       if (expanded > 160 * 1024 * 1024)
         throw new Error("El DOCX descomprimido supera los 160 MB.");
-      return /^(docProps\/custom\.xml|word\/(?:document|styles|numbering|comments|footnotes|endnotes|header\d+|footer\d+)\.xml|word\/_rels\/document\.xml\.rels|word\/media\/.+)$/.test(
+      return /^(docProps\/custom\.xml|word\/(?:document|styles|numbering|comments|footnotes|endnotes|header\d+|footer\d+)\.xml|word\/theme\/theme1\.xml|word\/_rels\/document\.xml\.rels|word\/media\/.+)$/.test(
         file.name,
       );
     },
@@ -167,6 +199,8 @@ export function importDocx(bytes: Uint8Array): {
       )
     : undefined;
   function fontValue(label: string) {
+    const local=availableFonts.find(font=>normalizeFontName(font.label)===normalizeFontName(label));
+    if(local)return local.value;
     const known = fontFamilies.find(
       (f) =>
         f.label.toLowerCase() === label.toLowerCase() ||
@@ -940,6 +974,11 @@ export function importDocx(bytes: Uint8Array): {
       style,
     ),
   };
+  if(availableFonts.length){
+    const used=new Set<string>();
+    const collect=(node:RichNode)=>{if(node.attrs?.fontFamily)used.add(String(node.attrs.fontFamily));for(const mark of node.marks??[])if(mark.attrs?.fontFamily)used.add(String(mark.attrs.fontFamily));node.content?.forEach(collect);};
+    collect(flow.content);flow.fonts=availableFonts.filter(font=>used.has(font.value));
+  }
   const entries = collectDocumentEntries(flow.content);
   const count = (type: string, n: RichNode = flow.content): number =>
     Number(n.type === type) +
