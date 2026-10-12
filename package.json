@@ -1,0 +1,13 @@
+{
+  "name": "@prisma/writer",
+  "version": "1.6.0",
+  "private": true,
+  "type": "module",
+  "license": "AGPL-3.0-or-later",
+  "scripts": {
+    "dev": "node tools/workspace.mjs dev",
+    "build": "node tools/workspace.mjs build",
+    "test": "node tools/workspace.mjs test",
+    "publish:pages": "node tools/workspace.mjs publish"
+  }
+}

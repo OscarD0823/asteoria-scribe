@@ -1,0 +1,7 @@
+{
+  "extends": "./.prisma/tsconfig.json",
+  "include": [
+    "src",
+    "tests"
+  ]
+}

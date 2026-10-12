@@ -1,0 +1,3 @@
+* text=auto
+# Licensed CSL originals retain their published hashes and line endings.
+src/csl/** -text
