@@ -61,10 +61,15 @@ import {
 import { replaceText, replacementMatches } from "./find-replace";
 import { StyleGallery } from "./StyleGallery";
 import { fontFamilies } from "@prisma/core/fonts";
+import {deviceFonts,knownInstalledFonts,installedFontFiles,normalizeFontName} from '@prisma/core/device-fonts';
+import {officeFontNames} from '@prisma/core/font-policy';
+import type {LocalFont} from '@prisma/core/local-fonts';
+import {resolvedAcademicPreset} from './academic';
 import {WordParts} from './WordParts';
 type Props = {
   tab: string;
   flow?: FlowDocument;
+  fonts?: LocalFont[];
   editor: RichEditorInstance | null;
   layout: PageLayout;
   onFlow: (flow: FlowDocument) => void;
@@ -267,7 +272,7 @@ export function WordTools(p: Props) {
       p.onError(e);
     }
   };
-  const academic = (next: AcademicStyle) => {
+  const academic = async(next: AcademicStyle) => {
     if (!p.flow) {
       p.onError(
         new Error(
@@ -276,10 +281,21 @@ export function WordTools(p: Props) {
       );
       return;
     }
-    const preset = academicPresets[next];
+    const available=[...new Map([...(p.fonts??[]),...deviceFonts()].map(font=>[font.value+':'+font.style,font])).values()];
+    const originalName=officeFontNames[academicPresets[next].fontFamily??''];
+    const installed=knownInstalledFonts();
+    if(originalName&&!available.some(font=>normalizeFontName(font.label)===normalizeFontName(originalName))&&installed.some(font=>normalizeFontName(font.family)===normalizeFontName(originalName))){
+      setWorking(true);
+      try{available.push(...(await installedFontFiles(installed,originalName)).fonts);}
+      catch(error){p.onError(new Error('Se usará la alternativa compatible: '+(error instanceof Error?error.message:String(error))));}
+      finally{setWorking(false);}
+    }
+    const preset = resolvedAcademicPreset(next,available);
+    const fonts=[...new Map([...(p.flow.fonts??[]),...available.filter(font=>font.value===preset.fontFamily)].map(font=>[font.value+':'+font.style,font])).values()];
     p.onFlow({
       ...p.flow,
       academicStyle: next,
+      fonts,
       layout: preset.layout
         ? {
             ...p.flow.layout,
@@ -289,9 +305,10 @@ export function WordTools(p: Props) {
           }
         : p.flow.layout,
       content: normalizeAcademicDocument(
-        applyAcademicStyle(p.flow.content, next),
+        applyAcademicStyle(p.flow.content, next, fonts),
         p.flow.references ?? [],
         next,
+        fonts,
       ),
     });
   };
@@ -486,6 +503,7 @@ export function WordTools(p: Props) {
               },
               p.flow.references ?? [],
               style,
+              p.fonts,
             ),
           });
         else e.chain().focus().insertContentAt(pos, cap).run();
@@ -617,7 +635,7 @@ export function WordTools(p: Props) {
         p.onFlow({
           ...p.flow,
           references,
-          content: normalizeAcademicDocument(p.flow.content, references, style),
+          content: normalizeAcademicDocument(p.flow.content, references, style,p.fonts),
         });
         setDialog("references");
         setReferenceTab("list");
@@ -709,7 +727,7 @@ export function WordTools(p: Props) {
           )}
           {group(
             "Estilos",
-            <StyleGallery editor={editor} academicStyle={style} />,
+            <StyleGallery editor={editor} academicStyle={style} fonts={p.fonts} />,
           )}
           {group(
             "Párrafo",
@@ -1917,6 +1935,7 @@ export function WordTools(p: Props) {
                               p.flow!.content,
                               references,
                               style,
+                              p.fonts,
                             ),
                           });
                         }}

@@ -2,11 +2,12 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { Editor } from "@tiptap/core";
 import {
-  academicPresets,
   applyAcademicStyle,
+  resolvedAcademicPreset,
   type AcademicStyle,
 } from "./academic";
 import { fontFamilies } from "@prisma/core/fonts";
+import {localFontFamilies,type LocalFont} from '@prisma/core/local-fonts';
 const labels = [
   "Normal",
   "Título",
@@ -23,9 +24,11 @@ const labels = [
 export function StyleGallery({
   editor,
   academicStyle,
+  fonts=[],
 }: {
   editor: Editor | null;
   academicStyle: AcademicStyle;
+  fonts?:LocalFont[];
 }) {
   const [open, setOpen] = useState(false);
   const modal = useRef<HTMLElement>(null),
@@ -37,9 +40,9 @@ export function StyleGallery({
       trigger.current?.focus();
     };
   }, [open]);
-  const preset = academicPresets[academicStyle];
+  const preset = resolvedAcademicPreset(academicStyle,fonts);
   const font =
-    fontFamilies.find((f) => f.value === preset.fontFamily)?.css ??
+    [...localFontFamilies(fonts),...fontFamilies].find((f) => f.value === preset.fontFamily)?.css ??
     "PrismaSans, sans-serif";
   const active = (i: number) =>
     !!editor &&
@@ -70,6 +73,7 @@ export function StyleGallery({
           content: [{ type: "heading", attrs: { level: i - 2 }, content: [] }],
         },
         academicStyle,
+        fonts,
       ).content![0];
       chain = chain
         .setHeading({ level: (i - 2) as 1 | 2 | 3 | 4 | 5 | 6 })

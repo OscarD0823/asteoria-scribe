@@ -43,6 +43,7 @@ import {
 import { documentSections } from "./sections";
 import { fontFamilies, fontFile, readFontFile } from "@prisma/core/fonts";
 import { decodeFont, encodeFont, type LocalFont } from "@prisma/core/local-fonts";
+import {officeFontName} from '@prisma/core/font-policy';
 import {
   pageSize,
   mm,
@@ -134,7 +135,7 @@ function withCaptions(parent: RichNode, flow: FlowDocument): RichNode[] {
         (c) => c.type === "caption" && c.attrs?.targetId === n.attrs?.id,
       ),
       blocks = cap
-        ? captionBlocks(cap, flow.academicStyle ?? "free")
+        ? captionBlocks(cap, flow.academicStyle ?? "free",flow.fonts)
         : { before: [], after: [] };
     const labels = [...blocks.before, ...blocks.after];
     if (cap && labels.length) {
@@ -182,6 +183,7 @@ export async function exportDocx(
       flow.content,
       flow.references ?? [],
       flow.academicStyle ?? "free",
+      fonts,
     ),
   };
   const faces = await fontFaces(normalized.content, fonts),
@@ -195,7 +197,7 @@ export async function exportDocx(
     }
   }
   const wordFont = (family: string) =>
-    wordNames.get(family) ?? safeFont(family, fonts);
+    flow.officeFontNames?.[family]??officeFontName(family,wordNames.get(family) ?? safeFont(family, fonts));
   const comments: {
       id: number;
       author: string;
@@ -797,7 +799,7 @@ export async function exportDocx(
       default: {
         document: {
           run: {
-            font: "Liberation Sans",
+            font: wordFont("PrismaSans"),
             size: 22,
             language: { value: proofingLanguage(flow.language).locale },
           },
@@ -806,11 +808,12 @@ export async function exportDocx(
     },
   });
   const bytes = new Uint8Array(await Packer.toArrayBuffer(document));
-  return embedDocxFonts(bytes, faces);
+  return embedDocxFonts(bytes, faces,flow.officeFontNames);
 }
 function embedDocxFonts(
   bytes: Uint8Array,
   faces: Awaited<ReturnType<typeof fontFaces>>,
+  requestedNames:Record<string,string>={},
 ): Uint8Array {
   if (!faces.length) return bytes;
   const files = unzipSync(bytes),
@@ -854,6 +857,11 @@ function embedDocxFonts(
     );
     families.set(face.label, group);
   }
+  // Request the Office family first. Embed alternatives under their actual names,
+  // so a recipient with Arial/Calibri installed can use the original font.
+  const alternatives=new Map<string,Set<string>>();
+  for(const face of faces){const requested=requestedNames[face.family]??officeFontName(face.family,face.label);if(requested!==face.label){const names=alternatives.get(requested)??new Set<string>();names.add(face.label);alternatives.set(requested,names);}}
+  for(const [requested,names] of alternatives)if(!families.has(requested))families.set(requested,['<w:altName w:val="'+escape([...names].join(', '))+'"/>']);
   files["word/fontTable.xml"] = strToU8(
     '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:fonts xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">' +
       [...families]
@@ -895,6 +903,7 @@ export async function exportHtml(
       flow.content,
       flow.references ?? [],
       flow.academicStyle ?? "free",
+      fonts,
     ),
   };
   const render = (n: RichNode): string => {

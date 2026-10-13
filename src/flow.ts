@@ -68,6 +68,8 @@ export type FlowDocument = {
   officeOriginal?: import('@prisma/core/office-engines').OfficeOriginal;
   importReport?: OfficeImportReport;
   fonts?: LocalFont[];
+  /** Requested Office family when a DOCX resolves it through an embedded alternative. */
+  officeFontNames?:Record<string,string>;
   content: RichNode;
   layout: PageLayout;
   academicStyle?: AcademicStyle;
@@ -1111,7 +1113,7 @@ async function buildFlowPass(
         (c) => c.type === "caption" && c.attrs?.targetId === child.attrs?.id,
       );
       const blocks = cap
-        ? captionBlocks(cap, flow.academicStyle ?? "free")
+        ? captionBlocks(cap, flow.academicStyle ?? "free",flow.fonts)
         : { before: [], after: [] };
       if (blocks.before.length) {
         let captionHeight = 0;
@@ -1312,6 +1314,7 @@ export async function buildFlowDocument(
       flow.content,
       flow.references ?? [],
       flow.academicStyle ?? "free",
+      flow.fonts,
     ),
     result: Awaited<ReturnType<typeof buildFlowPass>> | undefined;
   const paginate = (node: RichNode, map: Record<string, number>): RichNode => ({
@@ -1332,6 +1335,7 @@ export async function buildFlowDocument(
       paginate(content, result.pageMap),
       flow.references ?? [],
       flow.academicStyle ?? "free",
+      flow.fonts,
     );
     if (JSON.stringify(updated) === JSON.stringify(content)) break;
     content = updated;

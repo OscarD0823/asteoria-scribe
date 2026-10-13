@@ -137,7 +137,7 @@ export function importDocx(bytes: Uint8Array, availableFonts:LocalFont[]=[]): {
       expanded += file.originalSize;
       if (expanded > 160 * 1024 * 1024)
         throw new Error("El DOCX descomprimido supera los 160 MB.");
-      return /^(docProps\/custom\.xml|word\/(?:document|styles|numbering|comments|footnotes|endnotes|header\d+|footer\d+)\.xml|word\/theme\/theme1\.xml|word\/_rels\/document\.xml\.rels|word\/media\/.+)$/.test(
+      return /^(docProps\/custom\.xml|word\/(?:document|styles|fontTable|numbering|comments|footnotes|endnotes|header\d+|footer\d+)\.xml|word\/theme\/theme1\.xml|word\/_rels\/document\.xml\.rels|word\/media\/.+)$/.test(
         file.name,
       );
     },
@@ -146,6 +146,9 @@ export function importDocx(bytes: Uint8Array, availableFonts:LocalFont[]=[]): {
     throw new Error("El archivo no es un documento DOCX válido.");
   const xml = (path: string) =>
     parts[path] ? parseXml(strFromU8(parts[path])) : null;
+  const aliases=new Map<string,string[]>(),officeFontNames:Record<string,string>={};
+  const fontTable=xml('word/fontTable.xml');
+  if(fontTable)for(const font of all(fontTable,'font'))aliases.set(normalizeFontName(val(font,'name')),val(direct(font,'altName')).split(',').map(name=>name.trim()).filter(Boolean));
   const document = xml("word/document.xml")!,
     body = all(document, "body")[0];
   if (!body) throw new Error("No se encontró el contenido del DOCX.");
@@ -201,6 +204,10 @@ export function importDocx(bytes: Uint8Array, availableFonts:LocalFont[]=[]): {
   function fontValue(label: string) {
     const local=availableFonts.find(font=>normalizeFontName(font.label)===normalizeFontName(label));
     if(local)return local.value;
+    for(const name of aliases.get(normalizeFontName(label))??[]){
+      const alternative=availableFonts.find(font=>normalizeFontName(font.label)===normalizeFontName(name));
+      if(alternative){officeFontNames[alternative.value]=label;return alternative.value;}
+    }
     const known = fontFamilies.find(
       (f) =>
         f.label.toLowerCase() === label.toLowerCase() ||
@@ -964,6 +971,7 @@ export function importDocx(bytes: Uint8Array, availableFonts:LocalFont[]=[]): {
     language: proofingLanguages.find(language=>language.locale.toLowerCase()===declaredLanguage?.toLowerCase())?.id ?? "es",
     layout: layouts[0] ?? defaultLayout(),
     academicStyle: style,
+    officeFontNames,
     references: [],
     content: normalizeAcademicDocument(
       {
@@ -972,6 +980,7 @@ export function importDocx(bytes: Uint8Array, availableFonts:LocalFont[]=[]): {
       },
       [],
       style,
+      availableFonts,
     ),
   };
   if(availableFonts.length){

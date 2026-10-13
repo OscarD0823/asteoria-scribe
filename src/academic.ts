@@ -1,5 +1,7 @@
 import type { PageLayout, RichNode } from "./flow";
 import { extraAcademicPresets } from "./academic-catalog";
+import {preferredFont} from '@prisma/core/font-policy';
+import type {LocalFont} from '@prisma/core/local-fonts';
 import {
   formatCsl,
   isCslStyle,
@@ -107,6 +109,10 @@ export const academicPresets: Record<AcademicStyle, AcademicPreset> = {
   },
   ...extraAcademicPresets,
 };
+export function resolvedAcademicPreset(style:AcademicStyle,fonts:readonly LocalFont[]=[]):AcademicPreset {
+  const preset=academicPresets[style];
+  return preset.fontFamily?{...preset,fontFamily:preferredFont(preset.fontFamily,fonts)}:preset;
+}
 export type DocumentEntry = {
   id: string;
   targetId: string;
@@ -475,9 +481,10 @@ function styleText(
 export function applyAcademicStyle(
   content: RichNode,
   style: AcademicStyle,
+  fonts: readonly LocalFont[] = [],
 ): RichNode {
   const next = clone(content),
-    preset = academicPresets[style];
+    preset = resolvedAcademicPreset(style, fonts);
   if (!preset.fontFamily || !preset.fontSize) return next;
   function apply(node: RichNode, inTable = false) {
     if (node.type === "sectionBreak" && preset.layout)
@@ -743,7 +750,9 @@ export function collectCitationOccurrences(
 export function captionBlocks(
   caption: RichNode,
   style: AcademicStyle,
+  fonts: readonly LocalFont[] = [],
 ): { before: RichNode[]; after: RichNode[] } {
+  const preset=resolvedAcademicPreset(style,fonts);
   const attrs = caption.attrs || {},
     label = clean(attrs.label),
     titleText = clean(attrs.title),
@@ -755,10 +764,10 @@ export function captionBlocks(
     lineHeight: spacing,
     spaceBefore: 0,
     spaceAfter: 0,
-    ...(academicPresets[style].fontFamily
+    ...(preset.fontFamily
       ? {
-          fontFamily: academicPresets[style].fontFamily,
-          fontSize: academicPresets[style].fontSize,
+          fontFamily: caption.attrs?.fontFamily??preset.fontFamily,
+          fontSize: preset.fontSize,
         }
       : {}),
   };
@@ -810,7 +819,9 @@ export function normalizeAcademicDocument(
   content: RichNode,
   references: ReferenceRecord[],
   style: AcademicStyle,
+  fonts: readonly LocalFont[] = [],
 ): RichNode {
+  const preset=resolvedAcademicPreset(style,fonts);
   const next = clone(content),
     reserved = new Set<string>(),
     used = new Set<string>();
@@ -819,11 +830,11 @@ export function normalizeAcademicDocument(
     if (node.type === "generatedIndex" || node.type === "caption") return;
     const table = inTable || node.type === "table";
     if (
-      academicPresets[style].fontFamily &&
+      preset.fontFamily &&
       (node.type === "paragraph" || node.type === "heading") &&
       node.attrs?.academicStyle !== style
     ) {
-      const formatted = applyAcademicStyle(node, style);
+      const formatted = applyAcademicStyle(node, style, fonts);
       if (table) {
         formatted.attrs = {
           ...formatted.attrs,
@@ -1046,8 +1057,9 @@ export function normalizeAcademicDocument(
       appendixLetter: item.appendixLetter || "",
       academicStyle: style,
       label,
+      ...(preset.fontFamily?{fontFamily:preset.fontFamily}:{}),
     };
-    node.content = captionBlocks(node, style).before;
+    node.content = captionBlocks(node, style, fonts).before;
   });
   let ordered = referenceOrder(next, references, style);
   const csl = isCslStyle(style) ? formatCsl(ordered, style) : null;
@@ -1130,10 +1142,10 @@ export function normalizeAcademicDocument(
         lineHeight: style === "apa" ? 2 : kind === "references" ? 1 : 1.45,
         spaceBefore: 0,
         spaceAfter: 0,
-        ...(academicPresets[style].fontFamily
+        ...(preset.fontFamily
           ? {
-              fontFamily: academicPresets[style].fontFamily,
-              fontSize: academicPresets[style].fontSize,
+              fontFamily: preset.fontFamily,
+              fontSize: preset.fontSize,
             }
           : {}),
         ...(kind === "references" && (style === "apa" || csl?.hanging)
@@ -1173,16 +1185,16 @@ export function normalizeAcademicDocument(
         ).map((part) => ({
           type: "text",
           text: part.text,
-          ...(part.italic || part.href || academicPresets[style].fontFamily
+          ...(part.italic || part.href || preset.fontFamily
             ? {
                 marks: [
-                  ...(academicPresets[style].fontFamily
+                  ...(preset.fontFamily
                     ? [
                         {
                           type: "textStyle",
                           attrs: {
-                            fontFamily: academicPresets[style].fontFamily,
-                            fontSize: academicPresets[style].fontSize + "pt",
+                            fontFamily: preset.fontFamily,
+                            fontSize: preset.fontSize + "pt",
                           },
                         },
                       ]
