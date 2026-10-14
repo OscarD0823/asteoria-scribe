@@ -760,7 +760,7 @@ export async function exportDocx(
   }
   const document = new Document({
     title,
-    creator: "Prisma",
+    creator: "ASTEORIA",
     customProperties: [
       { name: "PrismaAcademicStyle", value: flow.academicStyle ?? "free" },
     ],
@@ -809,7 +809,7 @@ export async function exportDocx(
     },
   });
   const bytes = new Uint8Array(await Packer.toArrayBuffer(document));
-  return embedDocxFonts(prismaPackageMetadata(bytes,'Prisma Writer'), faces,flow.officeFontNames);
+  return embedDocxFonts(prismaPackageMetadata(bytes,"Asteoria Scribe"), faces,flow.officeFontNames);
 }
 function embedDocxFonts(
   bytes: Uint8Array,

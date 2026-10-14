@@ -1253,8 +1253,8 @@ async function buildFlowPass(
     );
   }
   doc.setTitle(title);
-  doc.setCreator("Prisma PDF");
-  doc.setProducer("Prisma PDF · documentos");
+  doc.setCreator("Asteoria Folio");
+  doc.setProducer("Asteoria Folio · documentos");
   await finalizeFontStreams(doc);
   return {
     bytes: await doc.save(),

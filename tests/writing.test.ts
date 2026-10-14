@@ -204,7 +204,7 @@ test("DOCX imports formatted text, Unicode, tables, comments, links and page lay
                   type: "comment",
                   attrs: {
                     id: "c1",
-                    author: "Prisma",
+                    author: "ASTEORIA",
                     text: "Revisar esta idea",
                   },
                 },
@@ -236,7 +236,7 @@ test("DOCX imports formatted text, Unicode, tables, comments, links and page lay
       ],
     },
   };
-  const bytes = await exportDocx(flow, "Prueba Prisma Writer");
+  const bytes = await exportDocx(flow, "Prueba Asteoria Scribe");
   const imported = importDocx(bytes);
   assert.match(
     academicPlainText(imported.flow.content),

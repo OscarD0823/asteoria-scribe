@@ -1,7 +1,9 @@
 {
   "product": "writer",
-  "name": "Prisma Writer",
-  "website": "https://oscard0823.github.io/prisma-writer/",
-  "sourceRepository": "OscarD0823/prisma-pdf",
+  "name": "Asteoria Scribe",
+  "channel": "beta",
+  "website": "https://oscard0823.github.io/asteoria-scribe/",
+  "sourceRepository": "OscarD0823/asteoria-scribe",
+  "sharedRepository": "OscarD0823/asteoria",
   "sourceRef": "main"
 }

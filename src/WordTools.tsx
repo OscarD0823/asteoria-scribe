@@ -1259,7 +1259,7 @@ export function WordTools(p: Props) {
               </div>
               <h3>Normas declaradas en el documento</h3>
               <p>
-                Se reconocen nombres de estilos o la norma guardada por Prisma.
+                Se reconocen nombres de estilos o la norma guardada por ASTEORIA.
                 La tipografía y los márgenes compartidos por varias normas no
                 bastan para identificarlas con certeza.
               </p>
