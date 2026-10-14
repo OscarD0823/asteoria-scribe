@@ -1,4 +1,5 @@
 import {proofingLanguage} from '@prisma/core/proofing-languages';
+import {prismaPackageMetadata} from '@prisma/core/package-metadata';
 import { PDFDocument } from "pdf-lib";
 import {preserveOfficeDocx} from '@prisma/core/office-engines';
 import { zipSync, unzipSync, strToU8, strFromU8 } from "fflate";
@@ -808,7 +809,7 @@ export async function exportDocx(
     },
   });
   const bytes = new Uint8Array(await Packer.toArrayBuffer(document));
-  return embedDocxFonts(bytes, faces,flow.officeFontNames);
+  return embedDocxFonts(prismaPackageMetadata(bytes,'Prisma Writer'), faces,flow.officeFontNames);
 }
 function embedDocxFonts(
   bytes: Uint8Array,

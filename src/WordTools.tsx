@@ -1006,9 +1006,9 @@ export function WordTools(p: Props) {
                 !editor,
               )}
               {action("Buscar en documento", Search, p.onNavigate)}
-              {p.flow?.officeOriginal&&action('Notas y comentarios de Word',BookOpen,()=>setPartsOpen(true))}
+              {p.flow?.officeOriginal&&action('Notas y comentarios del documento',BookOpen,()=>setPartsOpen(true))}
               {p.flow?.importReport &&
-                action("Compatibilidad con Office", BookOpen, () =>
+                action("Contenido conservado", BookOpen, () =>
                   open("compatibility"),
                 )}
               {action(
@@ -1228,7 +1228,7 @@ export function WordTools(p: Props) {
                   sections: "Secciones del documento",
                   academic: "Formatos del trabajo",
                   index: "Personalizar índice",
-                  compatibility: "Resumen de importación desde Word",
+                  compatibility: "Resumen de importación DOCX",
                 }[dialog]
               }
             </h2>

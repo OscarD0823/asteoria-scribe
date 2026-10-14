@@ -93,7 +93,7 @@ export async function importOfficeDocx(bytes:Uint8Array){
  result.warnings.push(...embedded.warnings);
  await attachOfficeOriginal(result.flow,bytes);
  result.warnings=result.warnings.filter(w=>!/historial de cambios|notas al pie o finales/.test(w));
- result.warnings.push('El original de Word se conserva. Los cambios de texto y notas mantienen sus partes; cambios de diseño o estructura requieren reconstrucción.');
+ result.warnings.push('El original de DOCX se conserva. Los cambios de texto y notas mantienen sus partes; cambios de diseño o estructura requieren reconstrucción.');
  if(result.flow.importReport)result.flow.importReport.warnings=result.warnings;
  return result;
 }
@@ -938,7 +938,7 @@ export function importDocx(bytes: Uint8Array, availableFonts:LocalFont[]=[]): {
     );
   if (all(document, "del").length || all(document, "ins").length)
     warnings.add(
-      "Se importó la versión visible del texto con cambios aceptados; el historial de cambios de Word no se conserva.",
+      "Se importó la versión visible del texto con cambios aceptados; el historial de cambios de DOCX no se conserva.",
     );
   const custom = xml("docProps/custom.xml");
   const declared =
@@ -963,7 +963,7 @@ export function importDocx(bytes: Uint8Array, availableFonts:LocalFont[]=[]): {
     );
   if (!detected.size)
     warnings.add(
-      "Word no declara una norma académica reconocida. No se deduce APA, IEEE u otra norma solo por la fuente o los márgenes.",
+      "DOCX no declara una norma académica reconocida. No se deduce APA, IEEE u otra norma solo por la fuente o los márgenes.",
     );
   const declaredLanguage = (parts["word/styles.xml"] ? strFromU8(parts["word/styles.xml"]) : "").match(/<(?:\w+:)?lang\b[^>]*(?:\w+:)?val=["']([^"']+)/)?.[1];
   if(containsVba)warnings.add("El documento contiene VBA. Sus macros no se ejecutan; se conservan con el original y las ediciones de texto compatibles. La reconstrucción DOCX crea una copia sin VBA.");

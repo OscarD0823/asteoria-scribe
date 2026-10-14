@@ -2,8 +2,8 @@ import {unzipSync,zipSync,strFromU8,strToU8} from 'fflate';
 export const xmlEscape=(value:unknown)=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&apos;'}[c]!));
 export const xmlText=(xml:string)=>xml.replace(/&(?:#x([\da-f]+)|#(\d+)|(amp|lt|gt|quot|apos));/gi,(_,hex,decimal,named)=>hex||decimal?String.fromCodePoint(Number.parseInt(hex??decimal,hex?16:10)):({amp:'&',lt:'<',gt:'>',quot:'"',apos:"'"}[named.toLowerCase() as 'amp']??''));
 export function readOfficePackage(bytes:Uint8Array,limits={maxParts:5000,maxPartBytes:32*1024*1024,maxTotalBytes:128*1024*1024}){
- if(bytes.length>80*1024*1024)throw Error('El archivo Office supera 80 MB.');let count=0,size=0;
- const parts=unzipSync(bytes,{filter(entry){if(++count>limits.maxParts||entry.originalSize>limits.maxPartBytes||(size+=entry.originalSize)>limits.maxTotalBytes)throw Error('El documento Office descomprimido supera los límites.');if(/(^\/|\\|(?:^|\/)\.\.(?:\/|$))/.test(entry.name))throw Error('Ruta interna Office no válida.');return true;}});
+ if(bytes.length>80*1024*1024)throw Error('El documento supera 80 MB.');let count=0,size=0;
+ const parts=unzipSync(bytes,{filter(entry){if(++count>limits.maxParts||entry.originalSize>limits.maxPartBytes||(size+=entry.originalSize)>limits.maxTotalBytes)throw Error('El documento descomprimido supera los límites.');if(/(^\/|\\|(?:^|\/)\.\.(?:\/|$))/.test(entry.name))throw Error('Ruta interna del documento no válida.');return true;}});
  for(const [name,part] of Object.entries(parts))if(/\.xml$|\.rels$/i.test(name)&&/<!DOCTYPE|<!ENTITY/i.test(strFromU8(part)))throw Error('El documento contiene una definición XML no admitida.');
  return parts;
 }
@@ -19,7 +19,7 @@ export function patchOfficeParagraph(xml:string,text:string):string|null{
  });
 }
 export function documentBodyBlocks(xml:string){
- const bodyMatch=xml.match(/<((?:[\w-]+:)?body)\b[^>]*>([\s\S]*?)<\/\1>/),body=bodyMatch?.[2];if(body===undefined)throw Error('El archivo no contiene un documento Word válido.');
+ const bodyMatch=xml.match(/<((?:[\w-]+:)?body)\b[^>]*>([\s\S]*?)<\/\1>/),body=bodyMatch?.[2];if(body===undefined)throw Error('El archivo no contiene un documento DOCX válido.');
  const base=bodyMatch!.index!+bodyMatch![0].indexOf('>')+1;
  const result:{originalXml:string;docxIndex:number;kind:string;text:string;from:number;to:number}[]=[];let depth=0,start=0,kind='',index=0;
  for(const match of body.matchAll(/<\/?([\w:-]+)\b[^>]*>/g)){
@@ -36,7 +36,7 @@ function notes(parts:Record<string,Uint8Array>,file:string,kind:string):PrismaWo
  return [...xml.matchAll(pattern)].filter(m=>!/(?:\w+:)?type=["'](?:separator|continuationSeparator)/.test(m[2])).map(m=>({id:xmlText(m[2].match(/(?:\w+:)?id=["']([^"']+)/)?.[1]??''),text:[...m[3].matchAll(/<(?:[\w-]+:)?t\b[^>]*>([\s\S]*?)<\/(?:[\w-]+:)?t>/g)].map(t=>xmlText(t[1])).join(''),originalXml:m[0],author:xmlText(m[2].match(/(?:\w+:)?author=["']([^"']+)/)?.[1]??''),date:m[2].match(/(?:\w+:)?date=["']([^"']+)/)?.[1]})).filter(n=>n.id&&Number(n.id)>=0);
 }
 export async function parsePrismaWord(bytes:Uint8Array){
- const parts=readOfficePackage(bytes);if(!parts['word/document.xml'])throw Error('Selecciona un documento Word Open XML.');
+ const parts=readOfficePackage(bytes);if(!parts['word/document.xml'])throw Error('Selecciona un documento DOCX Open XML.');
  const blocks=documentBodyBlocks(strFromU8(parts['word/document.xml']));
  return {parts,blocks,footnotes:notes(parts,'word/footnotes.xml','footnote'),endnotes:notes(parts,'word/endnotes.xml','endnote'),comments:notes(parts,'word/comments.xml','comment')};
 }
