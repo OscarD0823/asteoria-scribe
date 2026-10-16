@@ -84,7 +84,7 @@ export function writerExample(): FlowDocument {
   return {
     layout: {
       ...defaultLayout(),
-      header: "ASTEORIA WRITER · Documento de ejemplo",
+      header: "Auralis WRITER · Documento de ejemplo",
       numbering: true,
       pageNumberPosition: "footer-center",
     },

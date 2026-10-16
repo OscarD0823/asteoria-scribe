@@ -1253,8 +1253,8 @@ async function buildFlowPass(
     );
   }
   doc.setTitle(title);
-  doc.setCreator("Asteoria Folio");
-  doc.setProducer("Asteoria Folio · documentos");
+  doc.setCreator("Auralis Folio");
+  doc.setProducer("Auralis Folio · documentos");
   await finalizeFontStreams(doc);
   return {
     bytes: await doc.save(),

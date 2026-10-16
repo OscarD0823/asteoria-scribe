@@ -1,9 +1,9 @@
 {
   "product": "writer",
-  "name": "Asteoria Scribe",
+  "name": "Auralis Scribe",
   "channel": "beta",
-  "website": "https://oscard0823.github.io/asteoria-scribe/",
-  "sourceRepository": "OscarD0823/asteoria-scribe",
+  "website": "https://oscard0823.github.io/auralis-scribe/",
+  "sourceRepository": "OscarD0823/auralis-scribe",
   "sharedRepository": "OscarD0823/asteoria",
   "sourceRef": "main"
 }
